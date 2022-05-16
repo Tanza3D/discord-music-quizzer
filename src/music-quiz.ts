@@ -12,6 +12,7 @@ import { NewsChannel } from 'discord.js';
 
 const stopCommand = '!stop'
 const skipCommand = '!skip'
+const bustedCommand = '!busted'
 
 export class MusicQuiz {
     guild: Guild
@@ -39,10 +40,18 @@ export class MusicQuiz {
     }
 
     async start() {
-        this.songs = await this.getSongs(
-            this.arguments.playlist,
-            parseInt(this.arguments.songs, 10)
-        )
+        this.songs = await this.getSongs(this.arguments.playlist, 0)
+
+        while(true) {
+            // if songs is 100, 200, 300, etc. then there are more songs, so get more songs from offset.
+            // so if songs/100 is a whole number, then there are more songs.
+            if (this.songs.length % 100 === 0) {
+                const songs = await this.getSongs(this.arguments.playlist, this.songs.length)
+                this.songs = this.songs.concat(songs)
+            } else {
+                break
+            }
+        }
 
         if (!this.songs || this.songs.length === 0) {
             if (this.songs && this.songs.length === 0) {
@@ -53,6 +62,13 @@ export class MusicQuiz {
 
             return
         }
+
+
+        //  randomize order and limit songs to this.arguments.songs
+        var songs = parseInt(this.arguments.songs)
+        this.songs = this.songs.sort(() => Math.random() - 0.5).slice(0, songs)
+
+
 
         try {
             this.connection = await this.voiceChannel.join()
@@ -67,13 +83,13 @@ export class MusicQuiz {
         this.scores = {}
         this.textChannel.send(`
             **Let's get started**! :headphones: :tada:
-            **${this.songs.length}** songs have been selected randomly from the playlist.
-            You have one minute to guess each song.
+            **${this.songs.length}**/{${this.arguments.songs}} songs have been randomly selected.
+            You have one minute to guess each song!
 
             ${this.pointText()}
 
-            Type \`${stopCommand}\` to vote for continuing to the next song.
-            Type \`${skipCommand}\` to stop the quiz.
+            Type \`${skipCommand}\` to vote for continuing to the next song.
+            Type \`${stopCommand}\` to stop the quiz.
 
             - GLHF :microphone:
         `.replace(/  +/g, ''))
@@ -103,6 +119,12 @@ export class MusicQuiz {
 
         try {
             this.musicStream = await ytdl(link)
+            // skip to 0:20
+            this.musicStream.on('info', info => {
+                this.voiceStream = this.connection.play(this.musicStream, {
+                    seek: 20 * 1000
+                })
+            })
         } catch (e) {
             console.error(e);
 
@@ -149,22 +171,38 @@ export class MusicQuiz {
             return
         }
 
+        if (content == bustedCommand)
+        {
+            // imediately skip the song
+            this.nextSong('busted lol')
+        }
+
         const song = this.songs[this.currentSong]
         let score = this.scores[message.author.id] || 0
         let correct = false
 
-        if (!this.titleGuessed && content.includes(song.title.toLowerCase())) {
+        // rip things such as ?, !, etc. from content
+        var cleanContent = content.replace(/[^a-zA-Z0-9 ]/g, '')
+        var cleanArtist = song.artist.replace(/[^a-zA-Z0-9 ]/g, '')
+        var cleanTitle = song.title.replace(/[^a-zA-Z0-9 ]/g, '')
+        // replace multiple spaces with single space
+        cleanArtist = cleanArtist.replace(/  +/g, ' ')
+        cleanTitle = cleanTitle.replace(/  +/g, ' ')
+        cleanContent = cleanContent.replace(/  +/g, ' ')
+        
+
+        if (!this.titleGuessed && cleanContent.includes(cleanTitle.toLowerCase())) {
             score = score + 2
             this.titleGuessed = true
             correct = true
-            await this.reactToMessage(message, '☑')
+            await this.reactToMessage(message, '🎵')
         }
 
-        if (!this.artistGuessed && content.includes(song.artist.toLowerCase())) {
+        if (!this.artistGuessed && cleanContent.includes(cleanArtist.toLowerCase())) {
             score = score + 3
             this.artistGuessed = true
             correct = true
-            await this.reactToMessage(message, '☑')
+            await this.reactToMessage(message, '🧑‍🎤')
         }
         this.scores[message.author.id] = score
 
@@ -270,17 +308,14 @@ export class MusicQuiz {
 
     }
 
-    async getSongs(playlist: string, amount: number): Promise<Song[]> {
+    async getSongs(playlist: string, offset: number): Promise<Song[]> {
         const spotify = new Spotify()
         await spotify.authorize()
         if (playlist.includes('spotify.com/playlist')) {
             playlist = playlist.match(/playlist\/([^?]+)/)[1] || playlist
         }
-
         try {
-            return (await spotify.getPlaylist(playlist))
-                .sort(() => Math.random() > 0.5 ? 1 : -1)
-                .filter((song, index) => index < amount)
+            return (await spotify.getPlaylist(playlist, offset))
                 .map(song => ({
                     link: `https://open.spotify.com/track/${song.id}`,
                     previewUrl: song.preview_url,
