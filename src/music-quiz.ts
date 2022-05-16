@@ -65,8 +65,9 @@ export class MusicQuiz {
 
 
         //  randomize order and limit songs to this.arguments.songs
+        var origlength = this.songs.length
         var songs = parseInt(this.arguments.songs)
-        this.songs = this.songs.sort(() => Math.random() - 0.5).slice(0, songs)
+        this.songs = this.songs.sort(() => Math.random() > 0.5 ? 1 : -1).slice(0, songs)
 
 
 
@@ -83,7 +84,7 @@ export class MusicQuiz {
         this.scores = {}
         this.textChannel.send(`
             **Let's get started**! :headphones: :tada:
-            **${this.songs.length}**/{${this.arguments.songs}} songs have been randomly selected.
+            **${this.songs.length}**/{${origlength}} songs have been randomly selected.
             You have one minute to guess each song!
 
             ${this.pointText()}
@@ -118,12 +119,11 @@ export class MusicQuiz {
         }
 
         try {
-            this.musicStream = await ytdl(link)
-            // skip to 0:20
-            this.musicStream.on('info', info => {
-                this.voiceStream = this.connection.play(this.musicStream, {
-                    seek: 20 * 1000
-                })
+            this.musicStream = await ytdl(link, {
+                filter: 'audioonly',
+                // start at 0:25
+                // end at 0:30
+                highWaterMark: 1 << 25,
             })
         } catch (e) {
             console.error(e);
