@@ -9,7 +9,6 @@ import { VoiceConnection } from 'discord.js'
 import internal from 'stream'
 import { StreamDispatcher } from 'discord.js';
 import { NewsChannel } from 'discord.js';
-import romanize from 'romanize-japanese'
 
 const stopCommand = '!stop'
 const skipCommand = '!skip'
@@ -187,11 +186,14 @@ export class MusicQuiz {
         var cleanArtist = song.artist;
         var cleanTitle = song.title;
 
-        // romanize japanese
-        cleanArtist = romanize(cleanArtist);
-        cleanTitle = romanize(cleanTitle);
+        // if the artist or title has japanese, skip it
+        // /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/
+        if (cleanArtist.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/) || cleanTitle.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/)) {
+            this.nextSong('Sorry, this bot does not yet support songs with Japanese characters. Skipping to next.')
+        }
+    
 
-        cleanContent = cleanContent.replace(/[^a-zA-Z0-9 ]/g, '')
+        cleanContent = cleanContent.replace(/[^a-zA-Z0-9\s]/g, '');
         cleanArtist = cleanArtist.replace(/[^a-zA-Z0-9 ]/g, '')
         cleanTitle = cleanTitle.replace(/[^a-zA-Z0-9 ]/g, '')
         // replace multiple spaces with single space
