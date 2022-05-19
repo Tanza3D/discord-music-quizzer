@@ -9,6 +9,7 @@ import { VoiceConnection } from 'discord.js'
 import internal from 'stream'
 import { StreamDispatcher } from 'discord.js';
 import { NewsChannel } from 'discord.js';
+import romanize from 'romanize-japanese'
 
 const stopCommand = '!stop'
 const skipCommand = '!skip'
@@ -182,9 +183,17 @@ export class MusicQuiz {
         let correct = false
 
         // rip things such as ?, !, etc. from content
-        var cleanContent = content.replace(/[^a-zA-Z0-9 ]/g, '')
-        var cleanArtist = song.artist.replace(/[^a-zA-Z0-9 ]/g, '')
-        var cleanTitle = song.title.replace(/[^a-zA-Z0-9 ]/g, '')
+        var cleanContent = content;
+        var cleanArtist = song.artist;
+        var cleanTitle = song.title;
+
+        // romanize japanese
+        cleanArtist = romanize(cleanArtist);
+        cleanTitle = romanize(cleanTitle);
+
+        cleanContent = cleanContent.replace(/[^a-zA-Z0-9 ]/g, '')
+        cleanArtist = cleanArtist.replace(/[^a-zA-Z0-9 ]/g, '')
+        cleanTitle = cleanTitle.replace(/[^a-zA-Z0-9 ]/g, '')
         // replace multiple spaces with single space
         cleanArtist = cleanArtist.replace(/  +/g, ' ')
         cleanTitle = cleanTitle.replace(/  +/g, ' ')
